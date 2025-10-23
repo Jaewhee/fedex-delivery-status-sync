@@ -12,16 +12,12 @@ function Extension() {
   const orderId = order?.id;
   // @ts-ignore
   const orderName = order?.name;
-
-  // prevent crash if processedAt missing
-  // @ts-ignore
-  const processedAt = order?.processedAt || '';
-  const shipDateBegin = processedAt.includes('T') ? processedAt.split('T')[0] : undefined;
-
   // @ts-ignore
   const fulfillments = Array.isArray(order?.fulfillments) ? order.fulfillments : [];
+  console.log('fulfillments', fulfillments);
   const fullyDelivered =
     fulfillments.length > 0 && fulfillments.every((f) => f?.status === 'DELIVERED');
+  console.log('fullyDelivered', fullyDelivered);
 
   const [trackingData, setTrackingData] = useState(null);
   const [loading, setLoading] = useState(!fullyDelivered);
@@ -57,12 +53,13 @@ function Extension() {
         const res = await fetchWithRetry(url.toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, ...(shipDateBegin ? { shipDateBegin } : {}) }),
+          body: JSON.stringify({ orderId }),
         });
 
         let data;
         try {
           data = await res.json();
+          console.log('data: ', data);
         } catch {
           throw new Error(
             'Non-JSON response (possible redirect). Check App Proxy, CORS/OPTIONS, and storefront password.'
@@ -81,7 +78,7 @@ function Extension() {
       cancelled = true;
       ctrl.abort();
     };
-  }, [orderId, shipDateBegin, fullyDelivered]);
+  }, [orderId, fullyDelivered]);
 
   return (
     <s-banner heading="FedEx Delivery Status Sync"
@@ -92,28 +89,25 @@ function Extension() {
             ? `Fetching tracking for ${orderName ?? 'this order'}…`
             : error
               ? error
-              : 'FedEx Tracking Information:'}
+              : null}
         </s-text>
 
         {!loading && !error && trackingData && (
           <>
-            {trackingData.order && trackingData.order.name && (
-              <s-text>Order: {trackingData.order.name}</s-text>
-            )}
+            <s-text>allDelivered: {trackingData.allDelivered ? 'Yes' : 'No'}</s-text>
 
             {Array.isArray(trackingData.fulfillmentSummaries) &&
               trackingData.fulfillmentSummaries.length > 0 ? (
               trackingData.fulfillmentSummaries.map((f) => (
-                <s-stack key={f.fulfillmentId} 
-// @ts-ignore
-                gap="tight">
+                <s-stack key={f.fulfillmentId}
+                  // @ts-ignore
+                  gap="tight">
                   <s-text>
-                    Fulfillment: {f.fulfillmentId.split('/').pop()} —{' '}
-                    {f.allDelivered ? 'Delivered' : 'In transit'}
+                    FulfillmentId: {f.fulfillmentId}
                   </s-text>
                   {Array.isArray(f.tracks) && f.tracks.map((t) => (
                     <s-stack key={`${f.fulfillmentId}-${t.number}`} gap="none">
-                      <s-text>Tracking: {t.number}</s-text>
+                      <s-text>Tracking Number: {t.number}</s-text>
                       {t.statusDesc && <s-text>Status: {t.statusDesc}</s-text>}
                       {t.estimatedDelivery && (
                         <s-text>ETA: {new Date(t.estimatedDelivery).toLocaleString()}</s-text>
