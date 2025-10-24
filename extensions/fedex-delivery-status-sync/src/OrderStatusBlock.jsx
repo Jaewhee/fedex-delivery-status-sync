@@ -94,28 +94,52 @@ function Extension() {
 
         {!loading && !error && trackingData && (
           <>
-            <s-text>allDelivered: {trackingData.allDelivered ? 'Yes' : 'No'}</s-text>
-
             {Array.isArray(trackingData.fulfillmentSummaries) &&
               trackingData.fulfillmentSummaries.length > 0 ? (
-              trackingData.fulfillmentSummaries.map((f) => (
-                <s-stack key={f.fulfillmentId}
-                  // @ts-ignore
-                  gap="tight">
-                  <s-text>
-                    FulfillmentId: {f.fulfillmentId}
-                  </s-text>
-                  {Array.isArray(f.tracks) && f.tracks.map((t) => (
-                    <s-stack key={`${f.fulfillmentId}-${t.number}`} gap="none">
-                      <s-text>Tracking Number: {t.number}</s-text>
-                      {t.statusDesc && <s-text>Status: {t.statusDesc}</s-text>}
-                      {t.estimatedDelivery && (
-                        <s-text>ETA: {new Date(t.estimatedDelivery).toLocaleString()}</s-text>
-                      )}
-                    </s-stack>
-                  ))}
-                </s-stack>
-              ))
+              trackingData.fulfillmentSummaries.map((f) => {
+                const items =
+                  f.fulfillmentLineItems?.edges?.map(({ node }) => {
+                    const li = node?.lineItem || {};
+                    return {
+                      id: li.id || undefined,
+                      title: li.title || li.name || 'Item',
+                      sku: li.sku || undefined,
+                      qty: node?.quantity ?? 1,
+                    };
+                  }) || [];
+
+                return (
+                  <s-stack key={f.fulfillmentId} gap="base">
+                    {Array.isArray(f.tracks) &&
+                      f.tracks.map((t) => (
+                        <s-stack key={`${f.fulfillmentId}-${t.number}`} gap="none">
+                          <s-text>Tracking Number: {t.number}</s-text>
+                          {t.statusDesc && <s-text>Status: {t.statusDesc}</s-text>}
+                          {t.estimatedDelivery && (
+                            <s-text>
+                              ETA: {new Date(t.estimatedDelivery).toLocaleString()}
+                            </s-text>
+                          )}
+                        </s-stack>
+                      ))
+                    }
+
+                    <s-text>Items in this shipment</s-text>
+                    {items.length > 0 ? (
+                      <s-stack gap="none">
+                        {items.map((it, idx) => (
+                          <s-text key={`${f.fulfillmentId}-${it.id || idx}`}>
+                            {it.title} × {it.qty}
+                            {it.sku ? ` (SKU: ${it.sku})` : ''}
+                          </s-text>
+                        ))}
+                      </s-stack>
+                    ) : (
+                      <s-text>—</s-text>
+                    )}
+                  </s-stack>
+                );
+              })
             ) : (
               <s-text>No tracking yet.</s-text>
             )}
